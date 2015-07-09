@@ -1,0 +1,53 @@
+<template name="remote">
+
+  <div class="canvas-container">
+    <canvas id="canvas"> </canvas>
+  </div>
+  <img src="{{image}}">
+
+  <div class="buttons-container">
+    <form>
+      <!--{{#devices_list}}-->
+      <!--<button class="id" id="{{id}}">-->
+        <!--Get stuff from: {{name}}-->
+      <!--</button><br>-->
+      <!--{{/devices_list}}-->
+      <button class="get-data">
+        Get data from occluded
+      </button>
+      <button class="save-path">
+        Save path
+      </button>
+    </form>
+      <script src="/communication.js"></script>
+
+    <div class="deviceId">
+      Current {{deviceId}}
+    </div>
+    <div id="device_overview">
+      <table>
+        <tr>
+          <td id="devices_connected_count">
+            {{devices_connected_count}}
+          </td>
+          <td id="devices_connected_text_devices">
+            {{devices_connected_text_devices}}
+          </td>
+          <td id="devices_connected_text_rest">
+            connected.
+          </td>
+        </tr>
+        <tr class="invisible">
+          <td>
+          </td>
+          <td>
+            devices
+          </td>
+          <td>
+          </td>
+        </tr>
+      </table>
+
+    </div>
+  </div>
+</template>
