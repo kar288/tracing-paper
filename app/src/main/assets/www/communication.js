@@ -1,63 +1,11 @@
 var centralDevice;
-
-$(document).on('click', '.get-data', function(e) {
-  e.preventDefault();
-//  var from = $(this).attr('id');
-	var from = CWDatastore.get('occluded');
-
-	if (!from || $('#canvas-' + from).length) {
-		return;
-	}
-
-	$('.canvas-container').append('<canvas id="canvas-' + from + '"></canvas>');
-	var ctxFrom = newCanvas('canvas-' + from);
-	ctxs[from] = ctxFrom;
-
-  Connichiwa.broadcast('getInfo', {'id': from});
-
-  var pathCount = CWDatastore.get('paths-' + from) || 0;
-  for (var i = 1; i <= pathCount; i++) {
-  	var pathId = 'path-' + from + '-' + i;
-  	var path = CWDatastore.get('paths', pathId);
-		drawPath(ctxFrom, path, '#CCCCCC');
-  }
-  return false;
-});
-
-$(document).on('click', '.save-path', function(e) {
-  e.preventDefault();
-
-	var from = CWDatastore.get('occluded');
-
-  var pathCount = CWDatastore.get('paths-' + from) || 0;
-  for (var i = 1; i <= pathCount; i++) {
-  	var pathId = 'path-' + from + '-' + i;
-  	var path = CWDatastore.get('paths', pathId);
-		drawPath(ctx, path, 'black');
-  }
-
-  return false;
-});
-
-Connichiwa.onMessage('not-occluded-anymore', function(e) {
-	for (var ctx in ctxs) {
-		$('#canvas-' + ctx).remove();
-	}
-	ctxs = {};
-});
-
-Connichiwa.onMessage('getInfo', function(a) {
-  if (a.id == Connichiwa.getIdentifier()) {
-  	var source = a._source;
-  	centralDevice = source;
-//    Connichiwa.broadcast('sendImage', {'image': $('img').attr('src'), 'id': source});
-  }
-});
-
+var copying = false;
 var ctx, color = '#000';
 var ctxs = {};
 
-$( document ).ready(function(){
+// Document listeners
+
+$(document).ready(function(){
 	// setup a new canvas for drawing wait for device init
   setTimeout(function(){
 	  ctx = newCanvas('canvas');
@@ -65,29 +13,138 @@ $( document ).ready(function(){
 
  if (('onuserproximity' in window)) {
 		window.addEventListener('userproximity', function(event) {
-			 if (event.near) {
-			 		CWDatastore.set('occluded', Connichiwa.getIdentifier());
-			 } else {
-			 		CWDatastore.set('occluded', null);
+			var identifier = Connichiwa.getIdentifier();
+			if (event.near) {
+					var occluded = CWDatastore.get('occluded') || [];
+					occluded.push(identifier)
+			 		CWDatastore.set('occluded', occluded);
+			} else {
+			 		var occluded = CWDatastore.get('occluded') || [];
+			 		occluded.splice(occluded.indexOf(identifier), 1)
+			 		CWDatastore.set('occluded', occluded);
 			 		Connichiwa.broadcast('not-occluded-anymore', {});
-			 }
+			}
 		});
  }
 }, false );
 
-var drawPath = function(ctx, path, color) {
+$(document).on('click', '.get-data', function(e) {
+  e.preventDefault();
+  copying = true;
+
+	var from = CWDatastore.get('occluded')[0];
+
+	if (!from || $('#canvas-' + from).length) {
+		return;
+	}
+
+	CWDatastore.set('pairs', Connichiwa.getIdentifier(), from);
+
+	$('.canvas-container').append('<canvas id="canvas-' + from + '"></canvas>');
+	var ctxFrom = newCanvas('canvas-' + from);
+	ctxs[from] = ctxFrom;
+	var canvas = $('#canvas-' + from);
+	var center = {x: parseInt(canvas.attr('width')) / 2,
+		y: parseInt(canvas.attr('height')) / 2};
+
+  var pathCount = CWDatastore.get('paths-' + from) || 0;
+  for (var i = 1; i <= pathCount; i++) {
+  	var pathId = 'path-' + from + '-' + i;
+  	var path = CWDatastore.get('paths', pathId);
+		drawPath(ctxFrom, path, '#CCCCCC', 0, center);
+  }
+
+  return false;
+});
+
+$(document).on('click', '.save-path', function(e) {
+	copying = false;
+  e.preventDefault();
+
+	var from = CWDatastore.get('occluded')[0];
+	var canvas = $('#canvas-' + from);
+	var angle = parseInt(canvas.attr('prevAngle'));
+	var center = {x: parseInt(canvas.attr('width')) / 2,
+		y: parseInt(canvas.attr('height')) / 2};
+
+  var pathCount = CWDatastore.get('paths-' + from) || 0;
+  for (var i = 1; i <= pathCount; i++) {
+  	var pathId = 'path-' + from + '-' + i;
+  	var path = CWDatastore.get('paths', pathId);
+		drawPath(ctx, path, 'black', angle, center);
+  }
+  return false;
+});
+
+//Connichiwa listeners
+
+Connichiwa.onMessage('moveDraw', function(pos) {
+	if (pos.to != Connichiwa.getIdentifier()) {
+		return;
+	}
+	console.log('move', pos);
+	var ctx = ctxs[pos._source];
+  ctx.lineTo(pos.x, pos.y);
+	ctx.stroke();
+});
+
+Connichiwa.onMessage('startDraw', function(pos) {
+	if (pos.to != Connichiwa.getIdentifier()) {
+		return;
+	}
+	console.log('start', pos);
+	var ctx = ctxs[pos._source];
 	ctx.beginPath();
-	ctx.moveTo(path[0].x, path[0].y);
+	ctx.moveTo(pos.x, pos.y);
+});
+
+Connichiwa.onMessage('not-occluded-anymore', function(e) {
+	copying = false;
+	for (var ctx in ctxs) {
+		$('#canvas-' + ctx).remove();
+	}
+	ctxs = {};
+});
+
+Connichiwa.on('gyroscopeUpdate', function(gyroData) {
+	if (!copying) {
+		return;
+	}
+	var from = CWDatastore.get('pairs', Connichiwa.getIdentifier());
+	var el = $('#canvas-' + from);
+	var prevAngle = parseInt(el.attr('prevAngle')) || 0;
+	var newAngle = prevAngle + gyroData.delta.alpha;
+	el.css('transform', 'rotate(' + newAngle + 'deg)');
+	el.attr('prevAngle', newAngle);
+	$('.alpha').html(newAngle);
+});
+
+// Helper functions
+
+var drawPath = function(ctx, path, color, angle, center) {
+	ctx.beginPath();
+	var movedPoint = movePoint(path[0], angle, center);
+	ctx.moveTo(movedPoint.x, movedPoint.y);
 	for (var i = 0; i < path.length; i++) {
-		var point = path[i];
+		var point = movePoint(path[i], angle, center);
 		ctx.lineTo(point.x, point.y);
 		ctx.strokeStyle = color || 'black';
 		ctx.stroke();
 	}
-}
+};
+
+var movePoint = function(point, angle, center) {
+	angle *= (Math.PI / 180)
+	var x = (point.x - center.x);
+	var y = (point.y - center.y);
+	var movedX = x * Math.cos(angle) - y * Math.sin(angle);
+	var movedY = x * Math.sin(angle) + y * Math.cos(angle);
+	return {x: movedX + center.x, y: movedY + center.y};
+//	return point;
+};
 
 // function to setup a new canvas for drawing
-function newCanvas(id){
+var newCanvas = function(id) {
   // setup canvas
 	$('#' + id).attr('width', window.innerWidth);
 	$('#' + id).attr('height', window.innerHeight / 2);
@@ -133,27 +190,6 @@ var move = function(pos, clicked) {
 		Connichiwa.broadcast('moveDraw', {x: x, y: y, to: centralDevice});
 	}
 };
-
-Connichiwa.onMessage('moveDraw', function(pos) {
-	if (pos.to != Connichiwa.getIdentifier()) {
-		return;
-	}
-	console.log('move', pos);
-	var ctx = ctxs[pos._source];
-  ctx.lineTo(pos.x, pos.y);
-	ctx.stroke();
-});
-
-Connichiwa.onMessage('startDraw', function(pos) {
-	if (pos.to != Connichiwa.getIdentifier()) {
-		return;
-	}
-	console.log('start', pos);
-	var ctx = ctxs[pos._source];
-	ctx.beginPath();
-	ctx.moveTo(pos.x, pos.y);
-});
-
 
 // prototype to	start drawing on mouse using canvas moveTo and lineTo
 var drawMouse = function() {
@@ -209,5 +245,3 @@ var drawPointer = function() {
   $('canvas').on('MSPointerDown', start, false);
 	$('canvas').on('MSPointerMove', move, false);
 };
-
-

@@ -110,7 +110,6 @@ CWDatastore.set = function(collection, key, value) {
   // }
   //
 
-  console.log('set---------------------------------------------------------------');
   if (value === undefined) {
     value = key;
     key = collection;

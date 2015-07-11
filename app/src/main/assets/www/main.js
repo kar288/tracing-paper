@@ -26,6 +26,7 @@ Connichiwa.onLoad(function() {
     setDetectedDevices(detectedDevices + 1);
   });
 
+
   Connichiwa.on("deviceLost", function() {
     //Decrease nearby devices
     var detectedDevices = CWTemplates.get('devices_nearby_count');
@@ -38,18 +39,6 @@ Connichiwa.onLoad(function() {
   'https://tctechcrunch2011.files.wordpress.com/2015/03/seinfeld.jpg',
   'http://mediad.publicbroadcasting.net/p/demowgbh/files/201407/SeinfeldA.jpg']
 
-  Connichiwa.on('getInfo', function(id) {
-    console.log(id);
-//    var device = CWDeviceManager.getDeviceWithIdentifier(id);
-//    device.send('get-info', {'id': 'blabla'});
-    console.log('aaaaaaa');
-  });
-
-//
-  Connichiwa.onMessage('getInfo', function(a) {
-    console.log('bbbbb');
-    debugger;
-  });
 
   Connichiwa.on("deviceConnected", function(device) {
     //Increase connected devices
